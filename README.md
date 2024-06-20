@@ -1,12 +1,8 @@
 # What is URLMockProtocol?
 
-TODO
+URLMockProtocol is an iOS library that allows you to mock HTTP responses for your XCTests & XCUITests in a very simple way! 
 
-## Why?
-
-TODO
-
-## How?
+## How it works?
 
 TODO
 
