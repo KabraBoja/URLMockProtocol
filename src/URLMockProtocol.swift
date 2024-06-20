@@ -321,9 +321,9 @@ public class URLMockProtocol: URLProtocol {
     override public func stopLoading() {}
 }
 
-public class XCTestURLMock {
+public class XCUITestURLMock {
 
-    public static let shared = XCTestURLMock()
+    public static let shared = XCUITestURLMock()
     public var buttonsCenter = CGPoint(x: 0, y: 100)
     public var hidePasteButtonWhenFirstDataIsReceived = true
 
