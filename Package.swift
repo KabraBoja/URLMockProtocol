@@ -14,12 +14,9 @@ let package = Package(
     targets: [
         .target(
             name: "URLMockProtocol",
-            dependencies: [
-            ],
+            dependencies: [],
             path: "src",
-            swiftSettings: [
-                SwiftSetting.unsafeFlags(["-Xfrontend", "-strict-concurrency=minimal"])
-            ]
+            swiftSettings: []
         )
     ]
 )
