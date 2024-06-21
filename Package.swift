@@ -15,8 +15,12 @@ let package = Package(
         .target(
             name: "URLMockProtocol",
             dependencies: [],
-            path: "src",
-            swiftSettings: []
+            path: "src"
+        ),
+        .testTarget(
+            name: "URLMockProtocolTests",
+            dependencies: ["URLMockProtocol"],
+            path: "tests"
         )
     ]
 )

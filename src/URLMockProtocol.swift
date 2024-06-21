@@ -7,9 +7,9 @@ public class URLMockStore {
 
     private init() {}
 
-    public static func getMock(from: URLRequest) -> URLMock? {
+    public static func validMock(from: URLRequest) -> URLMock? {
         return shared.mocks.first (where: { m in
-            m.matches(request: from)
+            m.matches(request: from) && !m.isConsumed()
         })
     }
 
@@ -104,32 +104,42 @@ public class URLMock: Codable {
         case excludeResponse
     }
 
+    public enum Consumed: Codable {
+        case never
+        case count(Int)
+    }
+
     public let mode: Mode
     public let matchings: [Matching]
     public var delay: Double? // Seconds
+    public var consumed: Consumed
 
     public init(when: Matching, with: Response) {
         self.matchings = [when]
         self.mode = .response(with)
         self.delay = nil
+        self.consumed = .never
     }
 
     public init(when: [Matching], with: Response) {
         self.matchings = Array(when)
         self.mode = .response(with)
         self.delay = nil
+        self.consumed = .never
     }
 
-    public init(when: [Matching], with: Response, delay: Double) {
+    public init(when: [Matching], with: Response, delay: Double?, consumed: Consumed) {
         self.matchings = Array(when)
         self.mode = .response(with)
         self.delay = delay
+        self.consumed = consumed
     }
 
     public init(excludeWhen: [Matching]) {
         self.mode = .excludeResponse
         self.matchings = Array(excludeWhen)
         self.delay = nil
+        self.consumed = .never
     }
 
     public static func mock(when: Matching, with: Response) -> URLMock {
@@ -138,6 +148,14 @@ public class URLMock: Codable {
 
     public static func mock(when: [Matching], with: Response) -> URLMock {
         URLMock(when: when, with: with)
+    }
+
+    public static func mock(when: [Matching], with: Response, delay: Double?, consumed: Consumed) -> URLMock {
+        URLMock(when: when, with: with, delay: delay, consumed: consumed)
+    }
+
+    public static func exclude(when: [Matching]) -> URLMock {
+        URLMock(excludeWhen: when)
     }
 
     public func matches(matching: Matching, request: URLRequest) -> Bool {
@@ -216,6 +234,20 @@ public class URLMock: Codable {
         }
         return true
     }
+
+    public func consume() {
+        switch consumed {
+        case .never: break
+        case .count(let count): self.consumed = .count(max(count - 1, 0))
+        }
+    }
+
+    public func isConsumed() -> Bool {
+        switch consumed {
+        case .never: return false
+        case .count(let count): return count <= 0
+        }
+    }
 }
 
 public class URLMockProtocol: URLProtocol {
@@ -237,11 +269,11 @@ public class URLMockProtocol: URLProtocol {
         public var debugDescription: String {
             switch self {
             case .mockNotFound(let request):
-                return "URLMock NOT found for this Request: \(request.url?.absoluteString ?? "")"
+                return "❌ URLMock NOT found for this Request: \(request.url?.absoluteString ?? "")"
             case .jsonFileForMockNotFound(let fileName):
-                return "JSON mock file can't be loaded: \(fileName)"
+                return "❌ JSON mock file can't be loaded: \(fileName)"
             case .cantCreateHTTPResponse(let response):
-                return "Can't create HTTPResponse from response: \(response)"
+                return "❌ Can't create HTTPResponse from response: \(response)"
             }
         }
     }
@@ -251,7 +283,7 @@ public class URLMockProtocol: URLProtocol {
     }
 
     static public override func canInit(with request: URLRequest) -> Bool {
-        if let mock = URLMockStore.getMock(from: request) {
+        if let mock = URLMockStore.validMock(from: request) {
             switch mock.mode {
             case .response: return true
             case .excludeResponse: return false
@@ -268,7 +300,7 @@ public class URLMockProtocol: URLProtocol {
 
     override public func startLoading() {
         Task(priority: .userInitiated) {
-            if let mock = URLMockStore.getMock(from: request) {
+            if let mock = URLMockStore.validMock(from: request) {
                 if let delay = mock.delay {
                     try? await Task.sleep(nanoseconds: UInt64(Double(1_000_000_000) * delay))
                 }
