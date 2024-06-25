@@ -47,6 +47,23 @@ public enum Matching: Codable {
     case queryParam(key: String, value: String?)
     case headerParam(key: String, value: String)
     case pathExtension(String)
+
+    func debugDescription() -> String {
+        switch self {
+        case .url(let uRL):
+            return "URL: " + uRL.absoluteString
+        case .stringURL(let string):
+            return "StringURL: " + string
+        case .httpMethod(let string):
+            return "HTTP Method: " + string
+        case .queryParam(let key, let value):
+            return "Query Param: " + key + ": \(String(describing: value))"
+        case .headerParam(let key, let value):
+            return "Header Param: " + key + ": " + value
+        case .pathExtension(let string):
+            return "Path Extension: " + string
+        }
+    }
 }
 
 public class URLMock: Codable {
@@ -113,6 +130,7 @@ public class URLMock: Codable {
     public let matchings: [Matching]
     public var delay: Double? // Seconds
     public var consumed: Consumed
+    var matchedCount: Int = 0
 
     public init(when: Matching, with: Response) {
         self.matchings = [when]
@@ -284,6 +302,7 @@ public class URLMockProtocol: URLProtocol {
 
     static public override func canInit(with request: URLRequest) -> Bool {
         if let mock = URLMockStore.validMock(from: request) {
+            mock.matchedCount = mock.matchedCount + 1
             switch mock.mode {
             case .response: return true
             case .excludeResponse: return false
@@ -351,6 +370,24 @@ public class URLMockProtocol: URLProtocol {
     }
 
     override public func stopLoading() {}
+}
+
+public extension URLMockStore {
+    static func printNotUsedMocks() {
+        shared.mocks.forEach { mock in
+            if mock.matchedCount == 0 {
+                for match in mock.matchings {
+                    print("⚠️ MOCK NOT USED with MATCHING \(match.debugDescription())")
+                }
+            }
+        }
+    }
+
+    static func getNotUsedMocks() -> [URLMock] {
+        shared.mocks.filter { mock in
+            mock.matchedCount == 0
+        }
+    }
 }
 
 public class XCUITestURLMock {
