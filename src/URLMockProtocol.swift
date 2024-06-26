@@ -309,10 +309,12 @@ public class URLMockProtocol: URLProtocol {
     static public override func canInit(with request: URLRequest) -> Bool {
         if let mock = URLMockStore.validMock(from: request) {
             mock.matchedCount = mock.matchedCount + 1
-            mock.consume()
             switch mock.mode {
-            case .response: return true
-            case .excludeResponse: return false
+            case .response: 
+                return true
+            case .excludeResponse:
+                mock.consume()
+                return false
             }
         } else {
             onURLMockNotFound(request)
@@ -326,7 +328,8 @@ public class URLMockProtocol: URLProtocol {
 
     override public func startLoading() {
         Task(priority: .userInitiated) {
-            if let mock = URLMockStore.matchingMock(from: request) {
+            if let mock = URLMockStore.validMock(from: request) {
+                mock.consume()
                 if let delay = mock.delay {
                     try? await Task.sleep(nanoseconds: UInt64(Double(1_000_000_000) * delay))
                 }
