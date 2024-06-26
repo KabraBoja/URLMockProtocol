@@ -13,6 +13,12 @@ public class URLMockStore {
         })
     }
 
+    public static func matchingMock(from: URLRequest) -> URLMock? {
+        return shared.mocks.first (where: { m in
+            m.matches(request: from)
+        })
+    }
+
     public static func add(_ urlMock: URLMock) {
         shared.mocks.insert(urlMock, at: 0)
     }
@@ -303,6 +309,7 @@ public class URLMockProtocol: URLProtocol {
     static public override func canInit(with request: URLRequest) -> Bool {
         if let mock = URLMockStore.validMock(from: request) {
             mock.matchedCount = mock.matchedCount + 1
+            mock.consume()
             switch mock.mode {
             case .response: return true
             case .excludeResponse: return false
@@ -319,7 +326,7 @@ public class URLMockProtocol: URLProtocol {
 
     override public func startLoading() {
         Task(priority: .userInitiated) {
-            if let mock = URLMockStore.validMock(from: request) {
+            if let mock = URLMockStore.matchingMock(from: request) {
                 if let delay = mock.delay {
                     try? await Task.sleep(nanoseconds: UInt64(Double(1_000_000_000) * delay))
                 }
