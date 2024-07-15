@@ -53,6 +53,12 @@ public enum Matching: Codable {
     case queryParam(key: String, value: String?)
     case headerParam(key: String, value: String)
     case pathExtension(String)
+    case bodyJSONData(Data)
+
+    public static func bodyJSONObject(_ object: Any) -> Matching {
+        let data = try! JSONSerialization.data(withJSONObject: object)
+        return .bodyJSONData(data)
+    }
 
     func debugDescription() -> String {
         switch self {
@@ -68,6 +74,8 @@ public enum Matching: Codable {
             return "Header Param: " + key + ": " + value
         case .pathExtension(let string):
             return "Path Extension: " + string
+        case .bodyJSONData:
+            return "Body JSON Data"
         }
     }
 }
@@ -247,6 +255,13 @@ public class URLMock: Codable {
                 return false
             }
             return requestURL.pathExtension == fileExtension
+        case .bodyJSONData(let jsonData):
+            guard let requestBodyData = request.httpBody,
+                  let requestObject = try? JSONSerialization.jsonObject(with: requestBodyData, options: .fragmentsAllowed),
+                  let matchingObject = try? JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed) else {
+                return false
+            }
+            return matchJSONLevel(matching: matchingObject, from: requestObject)
         }
     }
 
@@ -270,6 +285,49 @@ public class URLMock: Codable {
         switch consumed {
         case .never: return false
         case .count(let count): return count <= 0
+        }
+    }
+
+    func matchJSONLevel(matching: Any, from: Any) -> Bool {
+
+        /// - Top level object is an NSArray or NSDictionary
+        /// - All objects are NSString, NSNumber, NSArray, NSDictionary, or NSNull
+        /// - All dictionary keys are NSStrings
+        /// - NSNumbers are not NaN or infinity
+
+        if let m = matching as? NSArray, let f = from as? NSArray {
+            var idx = 0
+            for element in m {
+                if idx < f.count {
+                    if !matchJSONLevel(matching: element, from: f[idx]) {
+                        return false
+                    }
+                } else {
+                    return false
+                }
+                idx += 1
+            }
+            return true
+        } else if let m = matching as? NSDictionary, let f = from as? NSDictionary {
+            let matchingKeys = m.allKeys
+            for key in matchingKeys {
+                if let fromValue = f[key], let matchingValue = m[key] {
+                    if !matchJSONLevel(matching: matchingValue, from: fromValue) {
+                        return false
+                    }
+                } else {
+                    return false
+                }
+            }
+            return true
+        } else if let m = matching as? NSString, let f = from as? NSString {
+            return m.isEqual(to: f as String)
+        } else if let m = matching as? NSNumber, let f = from as? NSNumber {
+            return m.isEqual(to: f)
+        } else if let m = matching as? NSNull, let f = from as? NSNull {
+            return m.isEqual(f)
+        } else {
+            return false
         }
     }
 }

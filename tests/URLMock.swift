@@ -97,6 +97,60 @@ class URLMockTests: XCTestCase {
             with: response
         )
         XCTAssertFalse(mock.matches(request: request))
+
+        // JSON Body
+        request = URLRequest(url: URL(string: "https://host.com/path")!)
+        request.httpBody = try! JSONSerialization.data(withJSONObject: [
+            "name": "iOSDev",
+            "age": 45,
+            "email": "iosDev@mail.com",
+            "nullable": nil,
+            "pull_requests": ["SCMI-1", "SCMI-2", "SCMI-3"],
+            "comments": ["title1": "comment1", "title2": "comment2"]
+        ])
+        mock = URLMock(
+            when: [Matching.bodyJSONObject([
+                "name": "iOSDev",
+                "age": 45,
+                "nullable": nil,
+                "comments": ["title2": "comment2"]
+            ])],
+            with: response
+        )
+        XCTAssertTrue(mock.matches(request: request))
+
+        mock = URLMock(
+            when: [Matching.bodyJSONObject(["name": "iOSDev", "age": 99, "nullable": nil])],
+            with: response
+        )
+        XCTAssertFalse(mock.matches(request: request))
+
+        mock = URLMock(
+            when: [Matching.bodyJSONObject([
+                "name": "iOSDev",
+                "age": 45,
+                "nullable": nil,
+                "comments": ["title2": "wrongComment"]
+            ])],
+            with: response
+        )
+        XCTAssertFalse(mock.matches(request: request))
+
+        mock = URLMock(
+            when: [Matching.bodyJSONObject([
+                "pull_requests": ["SCMI-1", "SCMI-2", "SCMI-3"]
+            ])],
+            with: response
+        )
+        XCTAssertTrue(mock.matches(request: request))
+
+        mock = URLMock(
+            when: [Matching.bodyJSONObject([
+                "pull_requests": ["SCMI-1", "SCMI-3"]
+            ])],
+            with: response
+        )
+        XCTAssertFalse(mock.matches(request: request))
     }
 }
 
